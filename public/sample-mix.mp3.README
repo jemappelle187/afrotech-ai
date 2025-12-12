@@ -1,0 +1,42 @@
+# Audio File Placeholder
+
+This directory should contain your `sample-mix.mp3` audio file.
+
+## How to Add Your Audio
+
+1. Place your audio file here: `public/sample-mix.mp3`
+2. Ensure it's in MP3 format
+3. Recommended: Keep file size under 10MB for faster loading
+
+## Important Legal Notes
+
+⚠️ **Copyright Compliance**: Make sure you have the legal rights to use any audio you deploy:
+
+- Use your own original recordings/mixes
+- Use royalty-free music from sites like:
+  - Bensound.com
+  - Incompetech.com
+  - Free Music Archive
+- Purchase licenses for commercial music
+- For production, consider embedding YouTube/SoundCloud instead
+
+## Alternative: Streaming Integration
+
+For production deployments, we recommend using streaming APIs instead of hosting audio files:
+
+- **YouTube Embed** - Use YouTube Data API + Player
+- **SoundCloud** - Use SoundCloud Widget API
+- **Spotify** - Use Spotify Web Playback SDK (premium required)
+
+This avoids hosting issues and provides better user experience.
+
+## Placeholder for Development
+
+For local development, you can:
+1. Use any royalty-free test audio
+2. Record a short test mix yourself
+3. Use a silent audio file for UI testing
+
+
+
+
