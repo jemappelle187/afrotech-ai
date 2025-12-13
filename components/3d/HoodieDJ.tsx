@@ -36,8 +36,35 @@ function findNode(root: THREE.Object3D, names: string[]) {
 }
 
 function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
-  const gltf = useGLTF("/models/pioneer_rig.glb") as any;
+  let gltf;
+  try {
+    gltf = useGLTF("/models/pioneer_rig.glb") as any;
+  } catch (error) {
+    console.error("[PioneerBooth] Error loading GLB:", error);
+    return (
+      <group {...props}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[2, 0.5, 1]} />
+          <meshStandardMaterial color="#ff0000" />
+        </mesh>
+      </group>
+    );
+  }
+  
+  if (!gltf || !gltf.scene) {
+    console.error("[PioneerBooth] GLB model failed to load - gltf:", gltf);
+    return (
+      <group {...props}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[2, 0.5, 1]} />
+          <meshStandardMaterial color="#ff0000" />
+        </mesh>
+      </group>
+    );
+  }
+  
   const scene = gltf.scene?.clone(true) ?? gltf.scene;
+  console.log("[PioneerBooth] Model loaded successfully");
   
   // Store references to beat-reactive materials
   const beatReactiveMaterials = useRef<Array<{
@@ -948,7 +975,8 @@ function BeatLayer() {
 }
 
 export function HoodieDJ() {
-  const cameraTarget = useMemo(() => new THREE.Vector3(0, 0.8, 0), []);
+  // Camera target focused on Pioneer equipment (at z=0.9, y=-0.26)
+  const cameraTarget = useMemo(() => new THREE.Vector3(0, -0.2, 0.9), []);
   const fogArgs = useMemo(
     () => [new THREE.Color("#06060a"), 10, 25] as [THREE.Color, number, number],
     []
@@ -973,18 +1001,25 @@ export function HoodieDJ() {
       >
         <color attach="background" args={["#05070d"]} />
         <fog attach="fog" args={fogArgs} />
-        <Suspense fallback={null}>
-          <group position={[0, 0.9, 2.8]}>
+        <Suspense fallback={
+          <mesh>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color="#333" />
+          </mesh>
+        }>
+          <group position={[0, 0.5, 2.5]}>
             <PerspectiveCamera
               makeDefault
-              fov={50}
+              fov={55}
               near={0.1}
               far={50}
-              position={[0, 0.9, 2.8]}
+              position={[0, 0.5, 2.5]}
               onUpdate={(cam) => cam.lookAt(cameraTarget)}
             />
           </group>
           <BeatLayer />
+          {/* Ambient light for base illumination */}
+          <ambientLight intensity={0.4} />
           {/* Pioneer DJ Equipment - centered and well-lit */}
           <group position={[0, 0, 0.9]}>
             <PioneerBooth scale={[1.1, 1.1, 1.1]} position={[0, -0.26, 0]} />
