@@ -113,21 +113,21 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
             const baseEmissive = m.emissive ? m.emissive.clone() : new THREE.Color("#000000");
             if (!m.emissive) m.emissive = new THREE.Color("#000000");
             
-            // Set initial emissive intensity
+            // Set subtle initial emissive intensity
             const mat = m as any;
             if (typeof mat.emissiveIntensity === "number") {
-              mat.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+              mat.emissiveIntensity = isJogWheel ? 0.15 : isScreen ? 0.25 : 0.1;
             } else {
-              mat.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+              mat.emissiveIntensity = isJogWheel ? 0.15 : isScreen ? 0.25 : 0.1;
             }
             
-            // Set emissive colors based on type
+            // Set subtle white/neutral emissive colors for realistic glow
             if (isJogWheel) {
-              m.emissive.set("#4a9eff"); // Blue glow for jog wheels
+              m.emissive.set("#ffffff"); // White glow for jog wheels
             } else if (isScreen) {
-              m.emissive.set("#00ff88"); // Green glow for screens
+              m.emissive.set("#ffffff"); // White glow for screens
             } else if (isButton) {
-              m.emissive.set("#ff6b9d"); // Pink/red glow for buttons
+              m.emissive.set("#ffffff"); // White glow for buttons
             }
             
             beatReactiveMaterials.current.push({
@@ -177,19 +177,19 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
     const energyLevel = energy.current;
     const beatIntensity = 1 + pulse * (0.6 + energyLevel * 0.4);
     
-    beatReactiveMaterials.current.forEach(({ material, isJogWheel, isScreen, isButton }) => {
+      beatReactiveMaterials.current.forEach(({ material, isJogWheel, isScreen, isButton }) => {
       // Type guard for materials with emissiveIntensity
       const mat = material as any;
       if (typeof mat.emissiveIntensity === "number") {
         if (isJogWheel) {
-          // Jog wheels pulse more dramatically
-          mat.emissiveIntensity = 0.3 + pulse * 0.7 * (1 + energyLevel);
+          // Jog wheels subtle pulse
+          mat.emissiveIntensity = 0.15 + pulse * 0.2 * (1 + energyLevel * 0.5);
         } else if (isScreen) {
-          // Screens have steady glow with subtle pulse
-          mat.emissiveIntensity = 0.5 + pulse * 0.3 * energyLevel;
+          // Screens have steady glow with very subtle pulse
+          mat.emissiveIntensity = 0.25 + pulse * 0.1 * energyLevel;
         } else if (isButton) {
-          // Buttons flash on beat
-          mat.emissiveIntensity = 0.2 + pulse * 0.8 * beatIntensity;
+          // Buttons subtle flash on beat
+          mat.emissiveIntensity = 0.1 + pulse * 0.15 * beatIntensity;
         }
       }
     });
@@ -328,61 +328,7 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
     }
   });
 
-  // Beat-reactive point lights for equipment glow
-  const leftJogLight = useRef<THREE.PointLight>(null);
-  const rightJogLight = useRef<THREE.PointLight>(null);
-  const mixerLight = useRef<THREE.PointLight>(null);
-  
-  useFrame(() => {
-    const pulse = beatPulse.current;
-    const energyLevel = energy.current;
-    const beatIntensity = 1 + pulse * (0.5 + energyLevel * 0.5);
-    
-    // Animate point lights to pulse with beat
-    if (leftJogLight.current) {
-      leftJogLight.current.intensity = 0.8 + pulse * 1.2 * beatIntensity;
-      leftJogLight.current.distance = 1.5 + pulse * 0.5;
-    }
-    if (rightJogLight.current) {
-      rightJogLight.current.intensity = 0.8 + pulse * 1.2 * beatIntensity;
-      rightJogLight.current.distance = 1.5 + pulse * 0.5;
-    }
-    if (mixerLight.current) {
-      mixerLight.current.intensity = 0.6 + pulse * 0.8 * energyLevel;
-      mixerLight.current.distance = 1.2 + pulse * 0.3;
-    }
-  });
-
-  return (
-    <group {...props}>
-      <primitive object={scene} />
-      {/* Beat-reactive point lights positioned near jog wheels and mixer */}
-      <pointLight
-        ref={leftJogLight}
-        position={[-0.9, -0.15, 0.8]}
-        color="#4a9eff"
-        intensity={0.8}
-        distance={1.5}
-        decay={2}
-      />
-      <pointLight
-        ref={rightJogLight}
-        position={[0.9, -0.15, 0.8]}
-        color="#4a9eff"
-        intensity={0.8}
-        distance={1.5}
-        decay={2}
-      />
-      <pointLight
-        ref={mixerLight}
-        position={[0, -0.2, 0.9]}
-        color="#00ff88"
-        intensity={0.6}
-        distance={1.2}
-        decay={2}
-      />
-    </group>
-  );
+  return <primitive object={scene} {...props} />;
 }
 
 useGLTF.preload("/models/pioneer_rig.glb");
@@ -654,20 +600,20 @@ function LightRig({
         color="#ffffff"
         decay={2}
       />
-      {/* Accent lights for club atmosphere */}
+      {/* Subtle accent lights for atmosphere */}
       <pointLight
         ref={accentLeft}
         position={[-2.5, 1.8, 0]}
-        intensity={0.6}
-        color="#ff6b9d"
+        intensity={0.4}
+        color="#ffffff"
         distance={4}
         decay={2}
       />
       <pointLight
         ref={accentRight}
         position={[2.5, 1.8, 0]}
-        intensity={0.6}
-        color="#4a9eff"
+        intensity={0.4}
+        color="#ffffff"
         distance={4}
         decay={2}
       />
