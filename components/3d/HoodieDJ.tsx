@@ -356,8 +356,8 @@ function getXFadeTarget() {
 function getFilterTarget() {
   return (GLB_TARGETS.filterL ?? DEFAULT_FILTER_TARGET).clone();
 }
-const RIGHT_HAND_ORIGIN = new THREE.Vector3(0.32, -0.12, 0.35);
-const LEFT_HAND_ORIGIN = new THREE.Vector3(-0.32, -0.12, 0.35);
+const RIGHT_HAND_ORIGIN = new THREE.Vector3(0.28, 0.4, 0.3);
+const LEFT_HAND_ORIGIN = new THREE.Vector3(-0.28, 0.4, 0.3);
 
 // --- smoothing helpers (critically-damped interpolation) ---
 const _tmpV3 = new THREE.Vector3();
@@ -696,223 +696,297 @@ function useAvatarEvents(
   }, [bpmRef, energyRef, crossfadeRef, filterRef]);
 }
 
-function HoodieRig() {
+function SideCharacter() {
   const bodyRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Group>(null);
-  const leftArmRef = useRef<THREE.Group>(null);
+  const leftUpperArmRef = useRef<THREE.Group>(null);
+  const leftForearmRef = useRef<THREE.Group>(null);
+  const rightUpperArmRef = useRef<THREE.Group>(null);
+  const rightForearmRef = useRef<THREE.Group>(null);
+  const leftThighRef = useRef<THREE.Group>(null);
+  const leftShinRef = useRef<THREE.Group>(null);
+  const rightThighRef = useRef<THREE.Group>(null);
+  const rightShinRef = useRef<THREE.Group>(null);
 
   const bpmRef = useRef<number>(120);
   const energyRef = useRef<number>(0.5);
-  const crossfadeGestureRef = useRef<Gesture | null>(null);
-  const filterGestureRef = useRef<Gesture | null>(null);
+  const playingRef = useRef(false);
 
-  useAvatarEvents(bpmRef, energyRef, crossfadeGestureRef, filterGestureRef);
+  // Listen to music events
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      playingRef.current = !!window.__afro?.playing;
+      const seed = window.__afro?.nowplaying;
+      if (seed?.bpm) bpmRef.current = seed.bpm;
+      if (typeof seed?.energy === "number") energyRef.current = seed.energy;
+    }
+
+    const onNP = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      if (typeof d?.bpm === "number") bpmRef.current = d.bpm;
+      if (typeof d?.energy === "number") energyRef.current = d.energy;
+    };
+
+    const onTransport = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      playingRef.current = !!d.playing;
+    };
+
+    window.addEventListener("afrotech:nowplaying", onNP as EventListener);
+    window.addEventListener("afrotech:transport", onTransport as EventListener);
+    return () => {
+      window.removeEventListener("afrotech:nowplaying", onNP as EventListener);
+      window.removeEventListener(
+        "afrotech:transport",
+        onTransport as EventListener
+      );
+    };
+  }, []);
 
   const baseColor = useMemo(() => new THREE.Color("#050505"), []);
-  const restLookRight = useMemo(() => new THREE.Vector3(0.3, 0.9, 0.4), []);
-  const restLookLeft = useMemo(() => new THREE.Vector3(-0.3, 0.9, 0.4), []);
 
   useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
     const bpm = bpmRef.current;
     const energy = energyRef.current;
-    const groove = Math.sin((t * bpm * Math.PI) / 60) * 0.2 * energy;
-    const phase = (t * bpm) / 60;
+    const isPlaying = playingRef.current && bpm && bpm > 0;
 
-    if (bodyRef.current) {
-      bodyRef.current.rotation.z = groove * 0.35;
-      bodyRef.current.rotation.x = groove * 0.15;
-      bodyRef.current.position.y = 1.05 + groove * 0.05;
-    }
-    if (headRef.current) {
-      headRef.current.position.y = 1.6 + groove * 0.06;
-      headRef.current.rotation.y = groove * 0.15;
-    }
+    if (isPlaying) {
+      const groove = Math.sin((t * bpm * Math.PI) / 60) * 0.15 * energy;
+      const bounce = Math.abs(Math.sin((t * bpm * Math.PI) / 60)) * 0.1 * energy;
 
-    const now = performance.now();
-
-    function applyGesture(
-      ref: MutableRefObject<THREE.Group | null>,
-      origin: THREE.Vector3,
-      gesture: Gesture | null,
-      idleSwing: number,
-      restLook: THREE.Vector3
-    ) {
-      const group = ref.current;
-      if (!group) return;
-
-      let desired = origin;
-
-      if (gesture) {
-        const elapsed = now - gesture.start;
-        const progress = THREE.MathUtils.clamp(
-          elapsed / gesture.duration,
-          0,
-          1
-        );
-        const eased =
-          progress < 1 ? THREE.MathUtils.smoothstep(progress, 0, 1) : 1;
-        const tgt = gesture.target;
-        desired = lerpVec3(origin, tgt, eased);
-        if (progress >= 1) {
-          if (ref === rightArmRef) crossfadeGestureRef.current = null;
-          if (ref === leftArmRef) filterGestureRef.current = null;
-          desired = lerpVec3(tgt, origin, 0.35);
-        }
-      } else {
-        const swayX =
-          Math.sin(t * 1.5 + idleSwing) * 0.05 * (0.3 + energy * 0.7);
-        const swayY =
-          Math.cos(t * 1.3 + idleSwing) * 0.025 * (0.4 + energy * 0.6);
-        desired = _tmpV3.set(origin.x + swayX, origin.y + swayY, origin.z);
+      // Body sway
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = groove * 0.2;
+        bodyRef.current.position.y = bounce * 0.03;
       }
 
-      dampVec3(group.position, desired, 12, delta);
-      const look = gesture ? gesture.target : restLook;
-      group.lookAt(look.x, look.y, look.z);
-    }
+      // Head bob
+      if (headRef.current) {
+        headRef.current.position.y = 1.15 + bounce * 0.02;
+        headRef.current.rotation.y = groove * 0.1;
+      }
 
-    applyGesture(
-      rightArmRef,
-      RIGHT_HAND_ORIGIN,
-      crossfadeGestureRef.current,
-      0.2,
-      restLookRight
-    );
-    applyGesture(
-      leftArmRef,
-      LEFT_HAND_ORIGIN,
-      filterGestureRef.current,
-      -0.2,
-      restLookLeft
-    );
+      // Arms movement
+      const armSway = Math.sin(t * bpm * Math.PI / 60 + Math.PI / 4) * 0.3 * energy;
+      if (leftUpperArmRef.current) {
+        leftUpperArmRef.current.rotation.z = -0.3 + armSway * 0.2;
+      }
+      if (rightUpperArmRef.current) {
+        rightUpperArmRef.current.rotation.z = 0.3 - armSway * 0.2;
+      }
+      if (leftForearmRef.current) {
+        leftForearmRef.current.rotation.z = -0.4 + armSway * 0.15;
+      }
+      if (rightForearmRef.current) {
+        rightForearmRef.current.rotation.z = 0.4 - armSway * 0.15;
+      }
+
+      // Legs movement
+      const legSway = Math.sin(t * bpm * Math.PI / 60) * 0.2 * energy;
+      if (leftThighRef.current) {
+        leftThighRef.current.rotation.x = legSway * 0.1;
+      }
+      if (rightThighRef.current) {
+        rightThighRef.current.rotation.x = -legSway * 0.1;
+      }
+    } else {
+      // Reset to neutral
+      if (bodyRef.current) {
+        bodyRef.current.rotation.z = 0;
+        bodyRef.current.position.y = 0;
+      }
+      if (headRef.current) {
+        headRef.current.position.y = 1.15;
+        headRef.current.rotation.y = 0;
+      }
+      if (leftUpperArmRef.current) leftUpperArmRef.current.rotation.z = -0.3;
+      if (rightUpperArmRef.current) rightUpperArmRef.current.rotation.z = 0.3;
+      if (leftForearmRef.current) leftForearmRef.current.rotation.z = -0.4;
+      if (rightForearmRef.current) rightForearmRef.current.rotation.z = 0.4;
+      if (leftThighRef.current) leftThighRef.current.rotation.x = 0;
+      if (rightThighRef.current) rightThighRef.current.rotation.x = 0;
+    }
   });
 
+  // Position behind the equipment (like the old DJCharacter was)
   return (
-    <group position={[0, 1.3, 0]} scale={[1.05, 1.05, 1.05]}>
-      {/* floor */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -1.3, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[12, 12]} />
-        <meshStandardMaterial color="#0d0d12" metalness={0.4} roughness={0.6} />
-      </mesh>
-
-      {/* platform */}
-      <mesh position={[0, -0.48, 0]} castShadow receiveShadow>
-        <boxGeometry args={[3.6, 0.05, 1.8]} />
-        <meshStandardMaterial
-          color="#07070d"
-          metalness={0.15}
-          roughness={0.75}
-        />
-      </mesh>
-
-      {/* decks & mixer (GLB) */}
-      <group position={[0, 0, 0.9]}>
-        {/* Pioneer GLB */}
-        <PioneerBooth scale={[1.05, 1.05, 1.05]} position={[0, -0.26, 0]} />
-
-        {/* Fallback placeholder geometry (hidden) */}
-        <group visible={false}>
-          <mesh position={[-0.9, -0.28, 0]} castShadow receiveShadow>
-            <boxGeometry args={[1.1, 0.08, 0.7]} />
-            <meshStandardMaterial
-              color="#11131c"
-              roughness={0.8}
-              metalness={0.2}
-              emissive="#1a1f3f"
-              emissiveIntensity={0.3}
-            />
-          </mesh>
-          <mesh position={[0.9, -0.28, 0]} castShadow receiveShadow>
-            <boxGeometry args={[1.1, 0.08, 0.7]} />
-            <meshStandardMaterial
-              color="#11131c"
-              roughness={0.8}
-              metalness={0.2}
-              emissive="#1a1f3f"
-              emissiveIntensity={0.3}
-            />
-          </mesh>
-          <mesh position={[0, -0.28, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.8, 0.07, 0.7]} />
-            <meshStandardMaterial
-              color="#11131c"
-              roughness={0.75}
-              metalness={0.25}
-              emissive="#1a1f3f"
-              emissiveIntensity={0.3}
-            />
-          </mesh>
-        </group>
-      </group>
-
-      {/* body */}
-      <group ref={bodyRef} position={[0, -0.2, 0]} castShadow>
-        <mesh position={[0, 0.3, 0]}>
-          <capsuleGeometry args={[0.32, 0.8, 16, 32]} />
-          <meshStandardMaterial
-            color={baseColor}
-            roughness={0.9}
-            metalness={0.1}
-          />
-        </mesh>
-        <mesh ref={headRef} position={[0, 0.82, 0]}>
-          <sphereGeometry args={[0.26, 24, 24]} />
+    <group position={[0, -0.38, 1.1]} scale={[1.0, 1.0, 1.0]}>
+      <group ref={bodyRef} position={[0, 0, 0]} castShadow>
+        {/* Head */}
+        <mesh ref={headRef} position={[0, 1.15, 0]}>
+          <sphereGeometry args={[0.2, 24, 24]} />
           <meshStandardMaterial
             color={baseColor}
             roughness={0.75}
             metalness={0.05}
+            depthWrite={true}
+            depthTest={true}
           />
         </mesh>
-        {/* shoulders */}
-        <mesh position={[0, 0.56, 0]}>
-          <torusGeometry args={[0.35, 0.08, 12, 32]} />
+
+        {/* Torso */}
+        <mesh position={[0, 0.5, 0]}>
+          <capsuleGeometry args={[0.22, 0.55, 16, 32]} />
           <meshStandardMaterial
             color={baseColor}
-            roughness={0.8}
+            roughness={0.9}
             metalness={0.1}
+            depthWrite={true}
+            depthTest={true}
           />
         </mesh>
-        <group ref={rightArmRef} position={RIGHT_HAND_ORIGIN.toArray()}>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.07, 0.07, 0.6, 12]} />
+
+        {/* Left upper arm */}
+        <group ref={leftUpperArmRef} position={[-0.25, 0.65, 0]} rotation={[0, 0, -0.3]}>
+          <mesh>
+            <cylinderGeometry args={[0.06, 0.06, 0.35, 12]} />
             <meshStandardMaterial
               color={baseColor}
               roughness={0.85}
               metalness={0.05}
+              depthWrite={true}
+              depthTest={true}
             />
           </mesh>
-          <mesh position={[0, -0.32, 0]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
-            <meshStandardMaterial
-              color={baseColor}
-              roughness={0.8}
-              metalness={0.05}
-            />
-          </mesh>
+          {/* Left forearm */}
+          <group ref={leftForearmRef} position={[0, -0.2, 0]} rotation={[0, 0, -0.4]}>
+            <mesh>
+              <cylinderGeometry args={[0.055, 0.055, 0.3, 12]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.85}
+                metalness={0.05}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+            {/* Left hand */}
+            <mesh position={[0, -0.18, 0]}>
+              <sphereGeometry args={[0.07, 12, 12]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.8}
+                metalness={0.05}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+          </group>
         </group>
-        <group ref={leftArmRef} position={LEFT_HAND_ORIGIN.toArray()}>
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.07, 0.07, 0.6, 12]} />
+
+        {/* Right upper arm */}
+        <group ref={rightUpperArmRef} position={[0.25, 0.65, 0]} rotation={[0, 0, 0.3]}>
+          <mesh>
+            <cylinderGeometry args={[0.06, 0.06, 0.35, 12]} />
             <meshStandardMaterial
               color={baseColor}
               roughness={0.85}
               metalness={0.05}
+              depthWrite={true}
+              depthTest={true}
             />
           </mesh>
-          <mesh position={[0, -0.32, 0]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
+          {/* Right forearm */}
+          <group ref={rightForearmRef} position={[0, -0.2, 0]} rotation={[0, 0, 0.4]}>
+            <mesh>
+              <cylinderGeometry args={[0.055, 0.055, 0.3, 12]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.85}
+                metalness={0.05}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+            {/* Right hand */}
+            <mesh position={[0, -0.18, 0]}>
+              <sphereGeometry args={[0.07, 12, 12]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.8}
+                metalness={0.05}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+          </group>
+        </group>
+
+        {/* Left thigh */}
+        <group ref={leftThighRef} position={[-0.1, -0.1, 0]}>
+          <mesh>
+            <capsuleGeometry args={[0.09, 0.4, 12, 24]} />
             <meshStandardMaterial
               color={baseColor}
-              roughness={0.8}
-              metalness={0.05}
+              roughness={0.9}
+              metalness={0.1}
+              depthWrite={true}
+              depthTest={true}
             />
           </mesh>
+          {/* Left shin */}
+          <group ref={leftShinRef} position={[0, -0.35, 0]}>
+            <mesh>
+              <capsuleGeometry args={[0.08, 0.35, 12, 24]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.9}
+                metalness={0.1}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+            {/* Left foot */}
+            <mesh position={[0, -0.25, 0.05]} rotation={[Math.PI / 6, 0, 0]}>
+              <boxGeometry args={[0.12, 0.08, 0.2]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.9}
+                metalness={0.1}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+          </group>
+        </group>
+
+        {/* Right thigh */}
+        <group ref={rightThighRef} position={[0.1, -0.1, 0]}>
+          <mesh>
+            <capsuleGeometry args={[0.09, 0.4, 12, 24]} />
+            <meshStandardMaterial
+              color={baseColor}
+              roughness={0.9}
+              metalness={0.1}
+              depthWrite={true}
+              depthTest={true}
+            />
+          </mesh>
+          {/* Right shin */}
+          <group ref={rightShinRef} position={[0, -0.35, 0]}>
+            <mesh>
+              <capsuleGeometry args={[0.08, 0.35, 12, 24]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.9}
+                metalness={0.1}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+            {/* Right foot */}
+            <mesh position={[0, -0.25, 0.05]} rotation={[Math.PI / 6, 0, 0]}>
+              <boxGeometry args={[0.12, 0.08, 0.2]} />
+              <meshStandardMaterial
+                color={baseColor}
+                roughness={0.9}
+                metalness={0.1}
+                depthWrite={true}
+                depthTest={true}
+              />
+            </mesh>
+          </group>
         </group>
       </group>
     </group>
@@ -975,10 +1049,25 @@ export function HoodieDJ() {
           <BeatLayer />
           {/* Ambient light for base illumination */}
           <ambientLight intensity={0.85} />
+          {/* DJ Character - more human-like with arms, legs, torso, and head */}
+          <SideCharacter />
           {/* Pioneer DJ Equipment - centered and well-lit */}
           <group position={[0, 0, 0.9]}>
             <PioneerBooth scale={[1.1, 1.1, 1.1]} position={[0, -0.26, 0]} />
           </group>
+          {/* Ground plane - below the platform */}
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, -0.6, 0.9]}
+            receiveShadow
+          >
+            <planeGeometry args={[12, 12]} />
+            <meshStandardMaterial
+              color="#0d0d12"
+              metalness={0.4}
+              roughness={0.6}
+            />
+          </mesh>
           {/* Platform for equipment */}
           <mesh position={[0, -0.48, 0.9]} castShadow receiveShadow>
             <boxGeometry args={[3.6, 0.05, 1.8]} />
