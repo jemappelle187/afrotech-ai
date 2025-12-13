@@ -601,12 +601,12 @@ function LightRig({
     <>
       <rectAreaLight
         ref={key}
-        position={[0.7, 1.85, 1.9]}
-        width={4.0}
-        height={1.6}
-        intensity={3.0}
+        position={[0.7, 1.85, 1.15]}
+        width={3.5}
+        height={1.4}
+        intensity={2.2}
         color="#ffffff"
-        onUpdate={(light) => light.lookAt(0, -0.2, 0.9)}
+        onUpdate={(light) => light.lookAt(0, 0.95, 0.1)}
       />
       <spotLight
         ref={rim}
@@ -622,19 +622,10 @@ function LightRig({
       />
       <pointLight
         ref={fill}
-        position={[-1.1, 0.5, 1.5]}
-        intensity={1.5}
+        position={[-1.1, 1.4, 1.1]}
+        intensity={1.1}
         color="#ffffff"
         decay={2}
-        distance={3}
-      />
-      {/* Additional fill light from right */}
-      <pointLight
-        position={[1.1, 0.5, 1.5]}
-        intensity={1.2}
-        color="#ffffff"
-        decay={2}
-        distance={3}
       />
       {/* Accent lights for club atmosphere */}
       <pointLight
