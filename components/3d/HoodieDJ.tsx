@@ -88,7 +88,7 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
         obj.receiveShadow = true;
         const m = obj.material;
         if (m && m.isMaterial) {
-          // More realistic material properties
+          // More realistic material properties with better visibility
           if (typeof m.metalness === "number")
             m.metalness = Math.max(
               0.3,
@@ -99,8 +99,17 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
               0.1,
               Math.min(0.6, (m.roughness ?? 0.3) * 0.8)
             );
-          if ("envMapIntensity" in m) (m as any).envMapIntensity = 0.8;
+          if ("envMapIntensity" in m) (m as any).envMapIntensity = 1.2;
           if ("toneMapped" in m) (m as any).toneMapped = true;
+          
+          // Increase base color brightness for better visibility
+          if (m.color && m.color instanceof THREE.Color) {
+            const currentBrightness = m.color.r + m.color.g + m.color.b;
+            if (currentBrightness < 0.3) {
+              // Brighten dark materials
+              m.color.multiplyScalar(1.5);
+            }
+          }
           
           // Identify beat-reactive elements
           const name = (obj.name || "").toLowerCase();
@@ -113,12 +122,12 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
             const baseEmissive = m.emissive ? m.emissive.clone() : new THREE.Color("#000000");
             if (!m.emissive) m.emissive = new THREE.Color("#000000");
             
-            // Set subtle initial emissive intensity
+            // Set visible initial emissive intensity
             const mat = m as any;
             if (typeof mat.emissiveIntensity === "number") {
-              mat.emissiveIntensity = isJogWheel ? 0.15 : isScreen ? 0.25 : 0.1;
+              mat.emissiveIntensity = isJogWheel ? 0.4 : isScreen ? 0.6 : 0.3;
             } else {
-              mat.emissiveIntensity = isJogWheel ? 0.15 : isScreen ? 0.25 : 0.1;
+              mat.emissiveIntensity = isJogWheel ? 0.4 : isScreen ? 0.6 : 0.3;
             }
             
             // Set subtle white/neutral emissive colors for realistic glow
@@ -182,14 +191,14 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
       const mat = material as any;
       if (typeof mat.emissiveIntensity === "number") {
         if (isJogWheel) {
-          // Jog wheels subtle pulse
-          mat.emissiveIntensity = 0.15 + pulse * 0.2 * (1 + energyLevel * 0.5);
+          // Jog wheels visible pulse
+          mat.emissiveIntensity = 0.4 + pulse * 0.3 * (1 + energyLevel * 0.5);
         } else if (isScreen) {
-          // Screens have steady glow with very subtle pulse
-          mat.emissiveIntensity = 0.25 + pulse * 0.1 * energyLevel;
+          // Screens have steady visible glow with pulse
+          mat.emissiveIntensity = 0.6 + pulse * 0.2 * energyLevel;
         } else if (isButton) {
-          // Buttons subtle flash on beat
-          mat.emissiveIntensity = 0.1 + pulse * 0.15 * beatIntensity;
+          // Buttons visible flash on beat
+          mat.emissiveIntensity = 0.3 + pulse * 0.25 * beatIntensity;
         }
       }
     });
@@ -557,9 +566,9 @@ function LightRig({
     const breathe = 0.85 + Math.sin(t * 0.3) * 0.05;
     const hit = 1 + pulse * (0.4 + energy * 0.3);
 
-    if (key.current) key.current.intensity = 2.2 * breathe * hit;
-    if (rim.current) rim.current.intensity = 2.0 * hit;
-    if (fill.current) fill.current.intensity = 1.1 * (0.8 + energy * 0.4);
+    if (key.current) key.current.intensity = 3.5 * breathe * hit;
+    if (rim.current) rim.current.intensity = 2.8 * hit;
+    if (fill.current) fill.current.intensity = 1.8 * (0.8 + energy * 0.4);
     
     // Accent lights that pulse with beat
     if (accentLeft.current) {
@@ -577,7 +586,7 @@ function LightRig({
         position={[0.7, 1.85, 1.15]}
         width={3.5}
         height={1.4}
-        intensity={2.2}
+        intensity={3.5}
         color="#ffffff"
         onUpdate={(light) => light.lookAt(0, 0.95, 0.1)}
       />
@@ -586,8 +595,8 @@ function LightRig({
         position={[0, 2.2, -3.4]}
         angle={0.55}
         penumbra={1.0}
-        intensity={2.0}
-        color="#7fa3ff"
+        intensity={2.8}
+        color="#ffffff"
         castShadow
         shadow-bias={-0.00035}
         shadow-mapSize-width={2048}
@@ -596,7 +605,7 @@ function LightRig({
       <pointLight
         ref={fill}
         position={[-1.1, 1.4, 1.1]}
-        intensity={1.1}
+        intensity={1.8}
         color="#ffffff"
         decay={2}
       />
@@ -939,7 +948,7 @@ export function HoodieDJ() {
           // @ts-ignore
           gl.physicallyCorrectLights = true;
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.85;
+          gl.toneMappingExposure = 1.1;
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
           gl.outputEncoding = THREE.sRGBEncoding;
@@ -965,7 +974,7 @@ export function HoodieDJ() {
           </group>
           <BeatLayer />
           {/* Ambient light for base illumination */}
-          <ambientLight intensity={0.4} />
+          <ambientLight intensity={0.85} />
           {/* Pioneer DJ Equipment - centered and well-lit */}
           <group position={[0, 0, 0.9]}>
             <PioneerBooth scale={[1.1, 1.1, 1.1]} position={[0, -0.26, 0]} />
