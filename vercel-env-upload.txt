@@ -1,0 +1,16 @@
+NEXTAUTH_SECRET=GPz8N8JvxzjHxFvsURoJ9Gvn0pi/88FE3NMqGkifbdA=
+NEXTAUTH_URL=https://www.afrotech.ai
+SPOTIFY_CLIENT_ID=4935b105ab434aa59ab386711e80a918
+SPOTIFY_CLIENT_SECRET=38b0d36e2d0448509e54fe9baacde33e
+SPOTIFY_REDIRECT_URI=https://www.afrotech.ai/api/auth/callback/spotify
+STRIPE_SECRET_KEY=sk_live_<your-stripe-secret-key>
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_<your-stripe-publishable-key>
+STRIPE_WEBHOOK_SECRET=whsec_<your-webhook-signing-secret>
+POSTGRES_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+SOUNDCLOUD_CLIENT_ID=<your-soundcloud-client-id>
+SOUNDCLOUD_CLIENT_SECRET=<your-soundcloud-client-secret>
+SOUNDCLOUD_REDIRECT_URI=https://www.afrotech.ai/api/soundcloud/callback
+YOUTUBE_API_KEY=<your-youtube-api-key>
+NEXT_PUBLIC_SITE_URL=https://www.afrotech.ai
+NEXT_PUBLIC_AI_DJ_ENABLED=1
+

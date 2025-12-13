@@ -267,9 +267,15 @@ async function transferPlaybackToDevice(deviceId: string, token: string) {
       body: JSON.stringify({ device_ids: [deviceId], play: false }),
     });
     if (res.status === 403) {
-      console.warn(
-        "[Spotify] 403 on transfer: Web Playback requires Premium and 'streaming' scope"
+      const errorText = await res.text();
+      console.error(
+        "[Spotify] 403 on transfer: Web Playback requires Premium and 'streaming' scope",
+        errorText
       );
+      // Show user-friendly error
+      if (typeof window !== 'undefined') {
+        alert("Spotify Web Playback requires a Premium account. Please upgrade your Spotify account to use this feature.");
+      }
     } else if (!res.ok) {
       console.warn(
         "[Spotify] transferPlayback non-ok",
@@ -1481,7 +1487,11 @@ export function MusicPlayer({
   }, [player, tracks, controls]);
 
   const startPlayback = async (customPlaylistUri?: string) => {
-    if (!deviceId || !session) return;
+    if (!deviceId || !session) {
+      console.warn("[Playback] Cannot start: deviceId=", deviceId, "session=", !!session);
+      alert("Spotify player not ready. Please wait for 'Spotify Ready' status or click 'Connect Player'.");
+      return;
+    }
 
     playRequestedRef.current = true;
     onStart?.();
@@ -1503,7 +1513,7 @@ export function MusicPlayer({
     try {
       // If a specific playlist is selected, play that
       if (targetUri) {
-        await fetch(
+        const playResponse = await fetch(
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
           {
             method: "PUT",
@@ -1516,6 +1526,14 @@ export function MusicPlayer({
             }),
           }
         );
+        
+        if (!playResponse.ok) {
+          const errorText = await playResponse.text();
+          console.error("[Playback] Spotify API error:", playResponse.status, errorText);
+          alert(`Failed to start playback: ${playResponse.status}. Check console for details.`);
+        } else {
+          console.log("[Playback] Successfully started playlist:", targetUri);
+        }
         return;
       }
 
@@ -1794,15 +1812,15 @@ export function MusicPlayer({
 
       {/* State 2: Session present but player not ready */}
       {(session as any)?.spotify?.accessToken && !deviceId && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-2">
           <button
             onClick={reconnectPlayer}
             className="text-xs border border-white/30 px-3 py-1 rounded hover:bg-white/10 transition-colors"
           >
             Connect Player
           </button>
-          <span className="text-[10px] text-white/50">
-            or open Spotify if prompted
+          <span className="text-[10px] text-white/50 text-right max-w-[200px]">
+            Note: Spotify Web Playback requires a Premium account. If you have Premium, click "Connect Player" and allow access when prompted.
           </span>
         </div>
       )}
