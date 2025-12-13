@@ -87,10 +87,11 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
             if (!m.emissive) m.emissive = new THREE.Color("#000000");
             
             // Set initial emissive intensity
-            if (typeof m.emissiveIntensity === "number") {
-              m.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+            const mat = m as any;
+            if (typeof mat.emissiveIntensity === "number") {
+              mat.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
             } else {
-              (m as any).emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+              mat.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
             }
             
             // Set emissive colors based on type
@@ -113,8 +114,9 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
           } else {
             // Non-reactive materials - keep dark
             if (m.emissive && m.emissive.set) m.emissive.set("#000000");
-            if (typeof m.emissiveIntensity === "number")
-              m.emissiveIntensity = 0.0;
+            const mat = m as any;
+            if (typeof mat.emissiveIntensity === "number")
+              mat.emissiveIntensity = 0.0;
           }
         }
       }
@@ -149,16 +151,18 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
     const beatIntensity = 1 + pulse * (0.6 + energyLevel * 0.4);
     
     beatReactiveMaterials.current.forEach(({ material, isJogWheel, isScreen, isButton }) => {
-      if (typeof material.emissiveIntensity === "number") {
+      // Type guard for materials with emissiveIntensity
+      const mat = material as any;
+      if (typeof mat.emissiveIntensity === "number") {
         if (isJogWheel) {
           // Jog wheels pulse more dramatically
-          material.emissiveIntensity = 0.3 + pulse * 0.7 * (1 + energyLevel);
+          mat.emissiveIntensity = 0.3 + pulse * 0.7 * (1 + energyLevel);
         } else if (isScreen) {
           // Screens have steady glow with subtle pulse
-          material.emissiveIntensity = 0.5 + pulse * 0.3 * energyLevel;
+          mat.emissiveIntensity = 0.5 + pulse * 0.3 * energyLevel;
         } else if (isButton) {
           // Buttons flash on beat
-          material.emissiveIntensity = 0.2 + pulse * 0.8 * beatIntensity;
+          mat.emissiveIntensity = 0.2 + pulse * 0.8 * beatIntensity;
         }
       }
     });
