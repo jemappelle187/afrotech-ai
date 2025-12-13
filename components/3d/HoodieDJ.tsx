@@ -38,36 +38,131 @@ function findNode(root: THREE.Object3D, names: string[]) {
 function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
   const gltf = useGLTF("/models/pioneer_rig.glb") as any;
   const scene = gltf.scene?.clone(true) ?? gltf.scene;
+  
+  // Store references to beat-reactive materials
+  const beatReactiveMaterials = useRef<Array<{
+    mesh: THREE.Mesh;
+    material: THREE.Material;
+    baseEmissive: THREE.Color;
+    isJogWheel: boolean;
+    isScreen: boolean;
+    isButton: boolean;
+  }>>([]);
+  
+  // Beat pulse from event bus
+  const beatPulse = useRef(0);
+  const energy = useRef(0.5);
 
   useMemo(() => {
+    beatReactiveMaterials.current = [];
     scene.traverse((obj: any) => {
       if (obj.isMesh) {
         obj.castShadow = true;
         obj.receiveShadow = true;
         const m = obj.material;
         if (m && m.isMaterial) {
+          // More realistic material properties
           if (typeof m.metalness === "number")
             m.metalness = Math.max(
-              0.05,
-              Math.min(0.25, (m.metalness ?? 0.2) * 0.6)
+              0.3,
+              Math.min(0.95, (m.metalness ?? 0.4) * 1.2)
             );
           if (typeof m.roughness === "number")
             m.roughness = Math.max(
-              0.7,
-              Math.min(0.92, (m.roughness ?? 0.7) * 1.1)
+              0.1,
+              Math.min(0.6, (m.roughness ?? 0.3) * 0.8)
             );
-          if (typeof m.emissiveIntensity === "number")
-            m.emissiveIntensity = Math.min(
-              0.08,
-              (m.emissiveIntensity ?? 0.0) * 0.3
-            );
-          if (m.emissive && m.emissive.set) m.emissive.set("#000000");
-          if ("envMapIntensity" in m) (m as any).envMapIntensity = 0.2;
+          if ("envMapIntensity" in m) (m as any).envMapIntensity = 0.8;
           if ("toneMapped" in m) (m as any).toneMapped = true;
+          
+          // Identify beat-reactive elements
+          const name = (obj.name || "").toLowerCase();
+          const isJogWheel = name.includes("jog") || name.includes("wheel") || name.includes("platter");
+          const isScreen = name.includes("screen") || name.includes("display") || name.includes("lcd");
+          const isButton = name.includes("button") || name.includes("pad") || name.includes("cue");
+          
+          if (isJogWheel || isScreen || isButton) {
+            // Store base emissive color
+            const baseEmissive = m.emissive ? m.emissive.clone() : new THREE.Color("#000000");
+            if (!m.emissive) m.emissive = new THREE.Color("#000000");
+            
+            // Set initial emissive intensity
+            if (typeof m.emissiveIntensity === "number") {
+              m.emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+            } else {
+              (m as any).emissiveIntensity = isJogWheel ? 0.3 : isScreen ? 0.5 : 0.2;
+            }
+            
+            // Set emissive colors based on type
+            if (isJogWheel) {
+              m.emissive.set("#4a9eff"); // Blue glow for jog wheels
+            } else if (isScreen) {
+              m.emissive.set("#00ff88"); // Green glow for screens
+            } else if (isButton) {
+              m.emissive.set("#ff6b9d"); // Pink/red glow for buttons
+            }
+            
+            beatReactiveMaterials.current.push({
+              mesh: obj,
+              material: m,
+              baseEmissive,
+              isJogWheel,
+              isScreen,
+              isButton,
+            });
+          } else {
+            // Non-reactive materials - keep dark
+            if (m.emissive && m.emissive.set) m.emissive.set("#000000");
+            if (typeof m.emissiveIntensity === "number")
+              m.emissiveIntensity = 0.0;
+          }
         }
       }
     });
   }, [scene]);
+  
+  // Listen to beat events
+  useEffect(() => {
+    const onBeat = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      beatPulse.current = detail?.v ?? 0;
+    };
+    
+    const onNowPlaying = (e: Event) => {
+      const detail = (e as CustomEvent).detail ?? {};
+      energy.current = typeof detail?.energy === "number" ? detail.energy : 0.5;
+    };
+    
+    window.addEventListener("afrotech:beat", onBeat as EventListener);
+    window.addEventListener("afrotech:nowplaying", onNowPlaying as EventListener);
+    
+    return () => {
+      window.removeEventListener("afrotech:beat", onBeat as EventListener);
+      window.removeEventListener("afrotech:nowplaying", onNowPlaying as EventListener);
+    };
+  }, []);
+  
+  // Animate beat-reactive materials
+  useFrame(() => {
+    const pulse = beatPulse.current;
+    const energyLevel = energy.current;
+    const beatIntensity = 1 + pulse * (0.6 + energyLevel * 0.4);
+    
+    beatReactiveMaterials.current.forEach(({ material, isJogWheel, isScreen, isButton }) => {
+      if (typeof material.emissiveIntensity === "number") {
+        if (isJogWheel) {
+          // Jog wheels pulse more dramatically
+          material.emissiveIntensity = 0.3 + pulse * 0.7 * (1 + energyLevel);
+        } else if (isScreen) {
+          // Screens have steady glow with subtle pulse
+          material.emissiveIntensity = 0.5 + pulse * 0.3 * energyLevel;
+        } else if (isButton) {
+          // Buttons flash on beat
+          material.emissiveIntensity = 0.2 + pulse * 0.8 * beatIntensity;
+        }
+      }
+    });
+  });
 
   const xfade = useMemo<THREE.Object3D | null>(
     () => findNode(scene, ["xfader", "crossfader", "fader"]),
@@ -202,7 +297,61 @@ function PioneerBooth(props: JSX.IntrinsicElements["group"]) {
     }
   });
 
-  return <primitive object={scene} {...props} />;
+  // Beat-reactive point lights for equipment glow
+  const leftJogLight = useRef<THREE.PointLight>(null);
+  const rightJogLight = useRef<THREE.PointLight>(null);
+  const mixerLight = useRef<THREE.PointLight>(null);
+  
+  useFrame(() => {
+    const pulse = beatPulse.current;
+    const energyLevel = energy.current;
+    const beatIntensity = 1 + pulse * (0.5 + energyLevel * 0.5);
+    
+    // Animate point lights to pulse with beat
+    if (leftJogLight.current) {
+      leftJogLight.current.intensity = 0.8 + pulse * 1.2 * beatIntensity;
+      leftJogLight.current.distance = 1.5 + pulse * 0.5;
+    }
+    if (rightJogLight.current) {
+      rightJogLight.current.intensity = 0.8 + pulse * 1.2 * beatIntensity;
+      rightJogLight.current.distance = 1.5 + pulse * 0.5;
+    }
+    if (mixerLight.current) {
+      mixerLight.current.intensity = 0.6 + pulse * 0.8 * energyLevel;
+      mixerLight.current.distance = 1.2 + pulse * 0.3;
+    }
+  });
+
+  return (
+    <group {...props}>
+      <primitive object={scene} />
+      {/* Beat-reactive point lights positioned near jog wheels and mixer */}
+      <pointLight
+        ref={leftJogLight}
+        position={[-0.9, -0.15, 0.8]}
+        color="#4a9eff"
+        intensity={0.8}
+        distance={1.5}
+        decay={2}
+      />
+      <pointLight
+        ref={rightJogLight}
+        position={[0.9, -0.15, 0.8]}
+        color="#4a9eff"
+        intensity={0.8}
+        distance={1.5}
+        decay={2}
+      />
+      <pointLight
+        ref={mixerLight}
+        position={[0, -0.2, 0.9]}
+        color="#00ff88"
+        intensity={0.6}
+        distance={1.2}
+        decay={2}
+      />
+    </group>
+  );
 }
 
 useGLTF.preload("/models/pioneer_rig.glb");
@@ -422,16 +571,26 @@ function LightRig({
   const key = useRef<THREE.RectAreaLight>(null);
   const rim = useRef<THREE.SpotLight>(null);
   const fill = useRef<THREE.PointLight>(null);
+  const accentLeft = useRef<THREE.PointLight>(null);
+  const accentRight = useRef<THREE.PointLight>(null);
 
   useFrame(({ clock }) => {
     const energy = THREE.MathUtils.clamp(energyRef.current, 0, 1);
     const t = clock.getElapsedTime();
     const breathe = 0.85 + Math.sin(t * 0.3) * 0.05;
-    const hit = 1 + pulse * (0.35 + energy * 0.25);
+    const hit = 1 + pulse * (0.4 + energy * 0.3);
 
-    if (key.current) key.current.intensity = 1.8 * breathe * hit;
-    if (rim.current) rim.current.intensity = 1.6 * hit;
-    if (fill.current) fill.current.intensity = 0.9 * (0.8 + energy * 0.4);
+    if (key.current) key.current.intensity = 2.2 * breathe * hit;
+    if (rim.current) rim.current.intensity = 2.0 * hit;
+    if (fill.current) fill.current.intensity = 1.1 * (0.8 + energy * 0.4);
+    
+    // Accent lights that pulse with beat
+    if (accentLeft.current) {
+      accentLeft.current.intensity = 0.6 + pulse * 0.8 * hit;
+    }
+    if (accentRight.current) {
+      accentRight.current.intensity = 0.6 + pulse * 0.8 * hit;
+    }
   });
 
   return (
@@ -439,27 +598,47 @@ function LightRig({
       <rectAreaLight
         ref={key}
         position={[0.7, 1.85, 1.15]}
-        width={3.0}
-        height={1.2}
-        intensity={1.8}
+        width={3.5}
+        height={1.4}
+        intensity={2.2}
         color="#ffffff"
         onUpdate={(light) => light.lookAt(0, 0.95, 0.1)}
       />
       <spotLight
         ref={rim}
-        position={[0, 2.0, -3.4]}
+        position={[0, 2.2, -3.4]}
         angle={0.55}
         penumbra={1.0}
-        intensity={1.6}
+        intensity={2.0}
         color="#7fa3ff"
         castShadow
         shadow-bias={-0.00035}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
       />
       <pointLight
         ref={fill}
         position={[-1.1, 1.4, 1.1]}
-        intensity={0.9}
+        intensity={1.1}
         color="#ffffff"
+        decay={2}
+      />
+      {/* Accent lights for club atmosphere */}
+      <pointLight
+        ref={accentLeft}
+        position={[-2.5, 1.8, 0]}
+        intensity={0.6}
+        color="#ff6b9d"
+        distance={4}
+        decay={2}
+      />
+      <pointLight
+        ref={accentRight}
+        position={[2.5, 1.8, 0]}
+        intensity={0.6}
+        color="#4a9eff"
+        distance={4}
+        decay={2}
       />
     </>
   );
@@ -782,7 +961,10 @@ export function HoodieDJ() {
           // @ts-ignore
           gl.physicallyCorrectLights = true;
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 0.7;
+          gl.toneMappingExposure = 0.85;
+          gl.shadowMap.enabled = true;
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          gl.outputEncoding = THREE.sRGBEncoding;
         }}
       >
         <color attach="background" args={["#05070d"]} />
