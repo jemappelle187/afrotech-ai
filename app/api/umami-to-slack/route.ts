@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
       // Spam detection lookup (CleanTalk - optional)
       const cleanTalkApiKey = process.env.CLEANTALK_API_KEY;
-      if (cleanTalkApiKey) {
+      if (cleanTalkApiKey && clientIp) {
         try {
           const spamCheckUrl = new URL("https://api.cleantalk.org/");
           spamCheckUrl.searchParams.set("method_name", "spam_check");
@@ -142,6 +142,12 @@ export async function POST(req: NextRequest) {
 
           if (spamRes.ok) {
             const spamData: any = await spamRes.json();
+            console.log("[UMAMI-TO-SLACK] CleanTalk API response:", {
+              hasData: !!spamData?.data,
+              ipInData: !!spamData?.data?.[clientIp],
+              responseKeys: spamData ? Object.keys(spamData) : [],
+            });
+
             if (spamData?.data?.[clientIp]) {
               const ipData = spamData.data[clientIp];
               isSpamDetected = ipData.appears === 1;
@@ -150,10 +156,23 @@ export async function POST(req: NextRequest) {
                 : "✅ Not in spam database";
               spamFrequency = ipData.frequency || "";
               spamLastUpdated = ipData.updated || "";
+            } else {
+              // IP not found in response - likely clean, but API didn't return it
+              spamStatus = "✅ Not in spam database";
+              console.log("[UMAMI-TO-SLACK] IP not in CleanTalk response, assuming clean");
             }
+          } else {
+            const errorText = await spamRes.text();
+            console.error(
+              "[UMAMI-TO-SLACK] CleanTalk API error:",
+              spamRes.status,
+              errorText
+            );
+            spamStatus = "❓ Unable to check (API error)";
           }
         } catch (e) {
-          console.error("Spam check error:", e);
+          console.error("[UMAMI-TO-SLACK] Spam check error:", e);
+          spamStatus = "❓ Unable to check (request failed)";
         }
       }
     }
@@ -182,21 +201,22 @@ export async function POST(req: NextRequest) {
     ];
 
     // Add spam detection section if CleanTalk API key is configured
-    if (process.env.CLEANTALK_API_KEY && clientIp) {
+    const cleanTalkApiKey = process.env.CLEANTALK_API_KEY;
+    if (cleanTalkApiKey && clientIp) {
+      // Ensure we always have a status to display
+      const displayStatus = spamStatus || "⏳ Checking...";
       const spamSection = {
         type: "section",
         text: {
           type: "mrkdwn",
           text:
             `*🛡️ Spam Detection*` +
-            `\n• Status: ${spamStatus || "-"}` +
+            `\n• Status: ${displayStatus}` +
             (spamFrequency ? `\n• Reports: ${spamFrequency} websites` : "") +
             (spamLastUpdated ? `\n• Last Updated: ${spamLastUpdated}` : ""),
         },
       };
       blocks.push(spamSection);
-
-      // Note: If spam is detected, it will show "⚠️ Detected in spam database" in the spam section
     }
 
     blocks.push({
