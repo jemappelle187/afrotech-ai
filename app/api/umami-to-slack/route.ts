@@ -142,37 +142,74 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (spamRes.ok) {
-            const spamData: any = await spamRes.json();
-            console.log("[UMAMI-TO-SLACK] CleanTalk API response:", {
-              hasData: !!spamData?.data,
-              ipInData: !!spamData?.data?.[clientIp],
-              responseKeys: spamData ? Object.keys(spamData) : [],
-            });
+          const responseText = await spamRes.text();
 
-            if (spamData?.data?.[clientIp]) {
-              const ipData = spamData.data[clientIp];
-              isSpamDetected = ipData.appears === 1;
-              spamStatus = isSpamDetected
-                ? "⚠️ Detected in spam database"
-                : "✅ Not in spam database";
-              spamFrequency = ipData.frequency || "";
-              spamLastUpdated = ipData.updated || "";
-            } else {
-              // IP not found in response - likely clean, but API didn't return it
-              spamStatus = "✅ Not in spam database";
-              console.log(
-                "[UMAMI-TO-SLACK] IP not in CleanTalk response, assuming clean"
+          try {
+            const responseData: any = JSON.parse(responseText);
+
+            // Check if API returned an error (even with HTTP 200)
+            if (responseData.error_no || responseData.error_message) {
+              console.error(
+                "[UMAMI-TO-SLACK] CleanTalk API error:",
+                responseData.error_message || "Unknown error",
+                "Error code:",
+                responseData.error_no
               );
+
+              // Don't show spam detection section if API key is invalid
+              if (responseData.error_no === 6) {
+                // Error 6 = Unknown access key
+                spamStatus = ""; // Empty status = don't show the section
+                console.warn(
+                  "[UMAMI-TO-SLACK] CleanTalk API key appears invalid, skipping spam detection"
+                );
+              } else {
+                spamStatus = "❓ Unable to check (API error)";
+              }
+            } else if (responseData.data) {
+              // Successful response
+              console.log("[UMAMI-TO-SLACK] CleanTalk API success:", {
+                hasData: !!responseData.data,
+                dataKeys: Object.keys(responseData.data),
+                ipInData: !!responseData.data[clientIp],
+              });
+
+              if (responseData.data[clientIp]) {
+                const ipData = responseData.data[clientIp];
+                isSpamDetected = ipData.appears === 1;
+                spamStatus = isSpamDetected
+                  ? "⚠️ Detected in spam database"
+                  : "✅ Not in spam database";
+                spamFrequency = ipData.frequency || "";
+                spamLastUpdated = ipData.updated || "";
+              } else {
+                // IP not found in response - likely clean
+                spamStatus = "✅ Not in spam database";
+                console.log(
+                  "[UMAMI-TO-SLACK] IP not in CleanTalk response, assuming clean"
+                );
+              }
+            } else {
+              // Unexpected response format
+              console.warn(
+                "[UMAMI-TO-SLACK] CleanTalk unexpected response format:",
+                responseData
+              );
+              spamStatus = "❓ Unable to check (unexpected response)";
             }
-          } else {
-            const errorText = await spamRes.text();
+          } catch (parseError) {
             console.error(
-              "[UMAMI-TO-SLACK] CleanTalk API error:",
-              spamRes.status,
-              errorText
+              "[UMAMI-TO-SLACK] Failed to parse CleanTalk JSON:",
+              parseError,
+              "Response:",
+              responseText
             );
-            spamStatus = "❓ Unable to check (API error)";
+            spamStatus = "❓ Unable to check (invalid response)";
+          }
+
+          // If status is empty (invalid API key), don't show spam section
+          if (!spamStatus && spamRes.ok) {
+            // Response was OK but had an error in JSON, don't show section
           }
         } catch (e) {
           console.error("[UMAMI-TO-SLACK] Spam check error:", e);
@@ -204,18 +241,17 @@ export async function POST(req: NextRequest) {
       },
     ];
 
-    // Add spam detection section if CleanTalk API key is configured
+    // Add spam detection section if CleanTalk API key is configured and we have a status
     const cleanTalkApiKey = process.env.CLEANTALK_API_KEY;
-    if (cleanTalkApiKey && clientIp) {
-      // Ensure we always have a status to display
-      const displayStatus = spamStatus || "⏳ Checking...";
+    if (cleanTalkApiKey && clientIp && spamStatus) {
+      // Only show section if we have a valid status (not empty, which means invalid API key)
       const spamSection = {
         type: "section",
         text: {
           type: "mrkdwn",
           text:
             `*🛡️ Spam Detection*` +
-            `\n• Status: ${displayStatus}` +
+            `\n• Status: ${spamStatus}` +
             (spamFrequency ? `\n• Reports: ${spamFrequency} websites` : "") +
             (spamLastUpdated ? `\n• Last Updated: ${spamLastUpdated}` : ""),
         },
