@@ -128,12 +128,14 @@ export async function POST(req: NextRequest) {
       const cleanTalkApiKey = process.env.CLEANTALK_API_KEY;
       if (cleanTalkApiKey && clientIp) {
         try {
+          // CleanTalk API: Use 'ip' parameter for GET request (single IP check)
           const spamCheckUrl = new URL("https://api.cleantalk.org/");
           spamCheckUrl.searchParams.set("method_name", "spam_check");
           spamCheckUrl.searchParams.set("auth_key", cleanTalkApiKey);
-          spamCheckUrl.searchParams.set("data", clientIp);
+          spamCheckUrl.searchParams.set("ip", clientIp);
 
           const spamRes = await fetch(spamCheckUrl.toString(), {
+            method: "GET",
             cache: "no-store",
             headers: {
               "User-Agent": "AfrotechAI-Webhook/1.0",
@@ -159,7 +161,9 @@ export async function POST(req: NextRequest) {
             } else {
               // IP not found in response - likely clean, but API didn't return it
               spamStatus = "✅ Not in spam database";
-              console.log("[UMAMI-TO-SLACK] IP not in CleanTalk response, assuming clean");
+              console.log(
+                "[UMAMI-TO-SLACK] IP not in CleanTalk response, assuming clean"
+              );
             }
           } else {
             const errorText = await spamRes.text();
