@@ -87,6 +87,10 @@ POSTGRES_URL=postgresql://user:pass@host/db
 
 # Slack (optional - for visit tracking notifications)
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# CleanTalk (optional - for spam detection on visitor IPs)
+# Get free API key at https://cleantalk.org/register (10,000 requests/month free)
+CLEANTALK_API_KEY=your_cleantalk_api_key_here
 ```
 
 ### 6. Initialize Database

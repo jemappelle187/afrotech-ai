@@ -91,7 +91,14 @@ export async function POST(req: NextRequest) {
     let geoLat = "";
     let geoLon = "";
 
+    // Spam detection via CleanTalk (optional)
+    let spamStatus = "";
+    let spamFrequency = "";
+    let spamLastUpdated = "";
+    let isSpamDetected = false;
+
     if (clientIp) {
+      // Geo-location lookup (ipapi.co)
       try {
         const geoRes = await fetch(`https://ipapi.co/${clientIp}/json/`, {
           cache: "no-store",
@@ -116,6 +123,39 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error("Geo lookup error:", e);
       }
+
+      // Spam detection lookup (CleanTalk - optional)
+      const cleanTalkApiKey = process.env.CLEANTALK_API_KEY;
+      if (cleanTalkApiKey) {
+        try {
+          const spamCheckUrl = new URL("https://api.cleantalk.org/");
+          spamCheckUrl.searchParams.set("method_name", "spam_check");
+          spamCheckUrl.searchParams.set("auth_key", cleanTalkApiKey);
+          spamCheckUrl.searchParams.set("data", clientIp);
+
+          const spamRes = await fetch(spamCheckUrl.toString(), {
+            cache: "no-store",
+            headers: {
+              "User-Agent": "AfrotechAI-Webhook/1.0",
+            },
+          });
+
+          if (spamRes.ok) {
+            const spamData: any = await spamRes.json();
+            if (spamData?.data?.[clientIp]) {
+              const ipData = spamData.data[clientIp];
+              isSpamDetected = ipData.appears === 1;
+              spamStatus = isSpamDetected
+                ? "⚠️ Detected in spam database"
+                : "✅ Not in spam database";
+              spamFrequency = ipData.frequency || "";
+              spamLastUpdated = ipData.updated || "";
+            }
+          }
+        } catch (e) {
+          console.error("Spam check error:", e);
+        }
+      }
     }
 
     const coordinatesText =
@@ -124,7 +164,7 @@ export async function POST(req: NextRequest) {
         : "-";
 
     // Format Slack message (using Slack Block Kit for rich formatting)
-    const blocks = [
+    const blocks: any[] = [
       {
         type: "section",
         text: {
@@ -139,22 +179,41 @@ export async function POST(req: NextRequest) {
             `\n• IP: ${clientIp || "-"}`,
         },
       },
-      {
+    ];
+
+    // Add spam detection section if CleanTalk API key is configured
+    if (process.env.CLEANTALK_API_KEY && clientIp) {
+      const spamSection = {
         type: "section",
         text: {
           type: "mrkdwn",
           text:
-            `*📊 Visit Details*` +
-            `\n• Page: ${body.title || "-"}` +
-            `\n• URL: ${body.url || "-"}` +
-            `\n• Hostname: ${body.hostname || "-"}` +
-            `\n• Language: ${body.language || "-"}` +
-            `\n• Screen: ${body.screen || "-"}` +
-            `\n• Visitor Type: ${body.visitorType || "-"}` +
-            (body.referrer ? `\n• Referrer: ${body.referrer}` : ""),
+            `*🛡️ Spam Detection*` +
+            `\n• Status: ${spamStatus || "-"}` +
+            (spamFrequency ? `\n• Reports: ${spamFrequency} websites` : "") +
+            (spamLastUpdated ? `\n• Last Updated: ${spamLastUpdated}` : ""),
         },
+      };
+      blocks.push(spamSection);
+
+      // Note: If spam is detected, it will show "⚠️ Detected in spam database" in the spam section
+    }
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text:
+          `*📊 Visit Details*` +
+          `\n• Page: ${body.title || "-"}` +
+          `\n• URL: ${body.url || "-"}` +
+          `\n• Hostname: ${body.hostname || "-"}` +
+          `\n• Language: ${body.language || "-"}` +
+          `\n• Screen: ${body.screen || "-"}` +
+          `\n• Visitor Type: ${body.visitorType || "-"}` +
+          (body.referrer ? `\n• Referrer: ${body.referrer}` : ""),
       },
-    ];
+    });
 
     const payload = {
       text: "New visitor on your site",

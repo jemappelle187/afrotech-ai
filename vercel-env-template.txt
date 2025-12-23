@@ -43,6 +43,9 @@ NEXT_PUBLIC_AI_DJ_ENABLED=1
 # SLACK WEBHOOK (optional - for visit tracking notifications)
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 
+# CLEANTALK API (optional - for spam detection, requires free account at cleantalk.org)
+CLEANTALK_API_KEY=your_cleantalk_api_key_here
+
 
 
 
