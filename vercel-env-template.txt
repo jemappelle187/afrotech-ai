@@ -1,0 +1,48 @@
+# ============================================================================
+# VERCEL ENVIRONMENT VARIABLES - COPY & PASTE INTO VERCEL
+# ============================================================================
+# Instructions:
+# 1. Replace all <placeholder> values with your actual credentials
+# 2. In Vercel, go to Environment Variables section
+# 3. Click "Import .env" or paste the contents below
+# 4. Remove the comment lines (lines starting with #) before pasting
+# ============================================================================
+
+# AUTHENTICATION (NextAuth)
+# Generate NEXTAUTH_SECRET with: openssl rand -base64 32
+NEXTAUTH_SECRET=GPz8N8JvxzjHxFvsURoJ9Gvn0pi/88FE3NMqGkifbdA=
+NEXTAUTH_URL=https://afrotech.ai
+
+# SPOTIFY API
+SPOTIFY_CLIENT_ID=<your-spotify-client-id>
+SPOTIFY_CLIENT_SECRET=<your-spotify-client-secret>
+SPOTIFY_REDIRECT_URI=https://afrotech.ai/api/auth/callback/spotify
+
+# STRIPE PAYMENTS
+STRIPE_SECRET_KEY=sk_live_<your-stripe-secret-key>
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_<your-stripe-publishable-key>
+STRIPE_WEBHOOK_SECRET=whsec_<your-webhook-signing-secret>
+
+# DATABASE (PostgreSQL)
+POSTGRES_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+
+# SOUNDCLOUD API (for AI DJ feature)
+SOUNDCLOUD_CLIENT_ID=<your-soundcloud-client-id>
+SOUNDCLOUD_CLIENT_SECRET=<your-soundcloud-client-secret>
+SOUNDCLOUD_REDIRECT_URI=https://afrotech.ai/api/soundcloud/callback
+
+# YOUTUBE DATA API (for AI DJ feature)
+YOUTUBE_API_KEY=<your-youtube-api-key>
+
+# SITE CONFIGURATION
+NEXT_PUBLIC_SITE_URL=https://afrotech.ai
+
+# FEATURE FLAGS
+NEXT_PUBLIC_AI_DJ_ENABLED=1
+
+# SLACK WEBHOOK (optional - for visit tracking notifications)
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+
+
+

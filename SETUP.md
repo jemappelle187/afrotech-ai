@@ -84,6 +84,9 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Optional for local
 
 # Postgres
 POSTGRES_URL=postgresql://user:pass@host/db
+
+# Slack (optional - for visit tracking notifications)
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 ```
 
 ### 6. Initialize Database
@@ -284,6 +287,3 @@ Need help? Check:
 - [Spotify Web API Docs](https://developer.spotify.com/documentation/web-api)
 
 Built with ❤️ for the Afrobeats + Tech community
-
-
-
